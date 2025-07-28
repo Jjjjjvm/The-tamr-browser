@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>بوت بث الديسكورد</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom font for better Arabic display */
+        body {
+            font-family: 'Inter', sans-serif;
+            direction: rtl; /* Set direction to Right-to-Left for Arabic */
+            text-align: right; /* Align text to the right */
+        }
+        /* Ensure text inputs and textareas are also RTL */
+        input[type="text"], textarea {
+            direction: rtl;
+            text-align: right;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">بوت بث الديسكورد</h1>
+
+        <div class="mb-4">
+            <label for="botToken" class="block text-gray-700 text-sm font-bold mb-2">
+                رمز بوت الديسكورد (Bot Token):
+            </label>
+            <input type="text" id="botToken" placeholder="أدخل رمز بوت الديسكورد الخاص بك هنا"
+                   class="shadow appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-blue-500 transition duration-200">
+        </div>
+
+        <button id="checkBotStatusButton"
+                class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-md w-full mb-4 focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-green-500 transition duration-200 transform hover:scale-105">
+            التحقق من حالة البوت
+        </button>
+
+        <div id="botStatusMessage" class="mt-2 p-3 rounded-md text-sm hidden">
+            <!-- Bot status messages will appear here -->
+        </div>
+
+        <div class="mb-6 mt-6">
+            <label for="broadcastMessage" class="block text-gray-700 text-sm font-bold mb-2">
+                الرسالة المراد بثها:
+            </label>
+            <textarea id="broadcastMessage" rows="4" placeholder="اكتب رسالة البث هنا..."
+                      class="shadow appearance-none border rounded-md w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-blue-500 transition duration-200 resize-y"></textarea>
+        </div>
+
+        <button id="broadcastButton"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md w-full focus:outline-none focus:shadow-outline focus:ring-2 focus:ring-blue-500 transition duration-200 transform hover:scale-105">
+            بدء البث
+        </button>
+
+        <div id="broadcastStatusMessage" class="mt-6 p-3 rounded-md text-sm hidden">
+            <!-- Broadcast status messages will appear here -->
+        </div>
+    </div>
+
+    <script>
+        const botTokenInput = document.getElementById('botToken');
+        const checkBotStatusButton = document.getElementById('checkBotStatusButton');
+        const botStatusMessageDiv = document.getElementById('botStatusMessage');
+        const broadcastButton = document.getElementById('broadcastButton');
+        const broadcastMessageInput = document.getElementById('broadcastMessage');
+        const broadcastStatusMessageDiv = document.getElementById('broadcastStatusMessage');
+
+        // Function to display status messages for bot status
+        function displayBotStatus(message, className) {
+            botStatusMessageDiv.textContent = message;
+            botStatusMessageDiv.className = `mt-2 p-3 rounded-md text-sm ${className}`;
+            botStatusMessageDiv.classList.remove('hidden');
+        }
+
+        // Function to display status messages for broadcast
+        function displayBroadcastStatus(message, className) {
+            broadcastStatusMessageDiv.textContent = message;
+            broadcastStatusMessageDiv.className = `mt-6 p-3 rounded-md text-sm ${className}`;
+            broadcastStatusMessageDiv.classList.remove('hidden');
+        }
+
+        // Event listener for "Check Bot Status" button
+        checkBotStatusButton.addEventListener('click', async () => {
+            const botToken = botTokenInput.value.trim();
+
+            if (!botToken) {
+                displayBotStatus('يرجى إدخال رمز البوت للتحقق من حالته.', 'bg-yellow-100 text-yellow-700');
+                return;
+            }
+
+            displayBotStatus('جاري التحقق من حالة البوت...', 'bg-blue-100 text-blue-700');
+
+            try {
+                // Send the bot token to the backend to check its status
+                const response = await fetch('/api/check_bot_status', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ botToken: botToken })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.status === 'success') {
+                    displayBotStatus(`البوت متصل: ${result.username}#${result.discriminator}`, 'bg-green-100 text-green-700');
+                } else {
+                    displayBotStatus(`فشل الاتصال بالبوت: ${result.message || 'خطأ غير معروف'}`, 'bg-red-100 text-red-700');
+                }
+            } catch (error) {
+                console.error('Error checking bot status:', error);
+                displayBotStatus(`حدث خطأ أثناء الاتصال بالخادم: ${error.message}`, 'bg-red-100 text-red-700');
+            }
+        });
+
+        // Event listener for "Broadcast" button
+        broadcastButton.addEventListener('click', async () => {
+            const botToken = botTokenInput.value.trim();
+            const message = broadcastMessageInput.value.trim();
+
+            if (!botToken) {
+                displayBroadcastStatus('يرجى إدخال رمز البوت.', 'bg-yellow-100 text-yellow-700');
+                return;
+            }
+
+            if (!message) {
+                displayBroadcastStatus('يرجى إدخال الرسالة المراد بثها.', 'bg-yellow-100 text-yellow-700');
+                return;
+            }
+
+            displayBroadcastStatus('جاري بدء البث... (يتطلب خادمًا خلفيًا)', 'bg-blue-100 text-blue-700');
+
+            try {
+                // Send the bot token and message to the backend for broadcasting
+                const response = await fetch('/api/broadcast', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        botToken: botToken,
+                        message: message
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.status === 'success') {
+                    displayBroadcastStatus(`تم إرسال طلب البث بنجاح: ${result.message}`, 'bg-green-100 text-green-700');
+                } else {
+                    displayBroadcastStatus(`فشل طلب البث: ${result.message || 'خطأ غير معروف'}`, 'bg-red-100 text-red-700');
+                }
+            } catch (error) {
+                console.error('Error during broadcast request:', error);
+                displayBroadcastStatus(`حدث خطأ أثناء الاتصال بالخادم: ${error.message}`, 'bg-red-100 text-red-700');
+            }
+        });
+    </script>
+</body>
+</html>
